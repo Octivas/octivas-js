@@ -5,26 +5,26 @@ The official Node.js client for the [Octivas](https://octivas.com) web scraping 
 ## Installation
 
 ```bash
-npm install octivas
+npm install @octivas/sdk
 # or
-yarn add octivas
+yarn add @octivas/sdk
 # or
-pnpm add octivas
+pnpm add @octivas/sdk
 ```
 
 ## Quick start
 
 ```typescript
-import { Octivas } from "octivas";
+import { Octivas } from "@octivas/sdk";
 
 const client = new Octivas({ apiKey: "oc-..." });
 
 // Scrape a single page
-const result = await client.scrape("https://example.com");
+const result = await client.scrape("https://docs.octivas.com");
 console.log(result.markdown);
 
 // Crawl a website
-const crawl = await client.crawl({ url: "https://docs.example.com", limit: 20 });
+const crawl = await client.crawl({ url: "https://docs.octivas.com", limit: 20 });
 for (const page of crawl.pages) {
   console.log(page.url, page.metadata?.title);
 }
@@ -40,7 +40,7 @@ for (const item of search.results) {
 
 ```typescript
 const job = await client.batchScrape({
-  urls: ["https://a.com", "https://b.com"],
+  urls: ["https://docs.octivas.com", "https://octivas.com"],
 });
 
 // Poll until done
@@ -53,10 +53,10 @@ for (const result of status.results) {
 ## Error handling
 
 ```typescript
-import { Octivas, AuthenticationError, RateLimitError } from "octivas";
+import { Octivas, AuthenticationError, RateLimitError } from "@octivas/sdk";
 
 try {
-  const result = await client.scrape("https://example.com");
+  const result = await client.scrape("https://docs.octivas.com");
 } catch (err) {
   if (err instanceof AuthenticationError) {
     console.error("Invalid API key");

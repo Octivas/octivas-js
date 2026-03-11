@@ -21,6 +21,7 @@ export {
   OctivasError,
   AuthenticationError,
   BadRequestError,
+  ForbiddenError,
   NotFoundError,
   RateLimitError,
   ServerError,

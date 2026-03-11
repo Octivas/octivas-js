@@ -1,6 +1,7 @@
 import {
   AuthenticationError,
   BadRequestError,
+  ForbiddenError,
   NotFoundError,
   OctivasError,
   RateLimitError,
@@ -70,6 +71,7 @@ export class Octivas {
         const opts = { statusCode: response.status, body: errorBody };
 
         if (response.status === 401) throw new AuthenticationError(message, opts);
+        if (response.status === 403) throw new ForbiddenError(message, opts);
         if (response.status === 400 || response.status === 422)
           throw new BadRequestError(message, opts);
         if (response.status === 404) throw new NotFoundError(message, opts);
