@@ -33,6 +33,16 @@ export class BadRequestError extends OctivasError {
   }
 }
 
+export class ForbiddenError extends OctivasError {
+  constructor(
+    message: string,
+    options?: { statusCode?: number; body?: Record<string, unknown> },
+  ) {
+    super(message, { statusCode: 403, ...options });
+    this.name = "ForbiddenError";
+  }
+}
+
 export class NotFoundError extends OctivasError {
   constructor(
     message: string,

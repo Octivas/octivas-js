@@ -1,7 +1,15 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
-import { Octivas, AuthenticationError, BadRequestError } from "../src";
+import {
+  Octivas,
+  AuthenticationError,
+  BadRequestError,
+  ForbiddenError,
+  NotFoundError,
+  RateLimitError,
+  ServerError,
+} from "../src";
 
 const BASE_URL = "https://api.octivas.com";
 
@@ -56,6 +64,45 @@ describe("Octivas client", () => {
         ),
       );
       await expect(client.scrape("bad-url")).rejects.toThrow(BadRequestError);
+    });
+
+    it("throws ForbiddenError on 403", async () => {
+      server.use(
+        http.post(`${BASE_URL}/api/v1/scrape`, () =>
+          HttpResponse.json({ success: false, error: "Forbidden" }, { status: 403 }),
+        ),
+      );
+      await expect(client.scrape("https://example.com")).rejects.toThrow(ForbiddenError);
+    });
+
+    it("throws NotFoundError on 404", async () => {
+      server.use(
+        http.post(`${BASE_URL}/api/v1/scrape`, () =>
+          HttpResponse.json({ success: false, error: "Not found" }, { status: 404 }),
+        ),
+      );
+      await expect(client.scrape("https://example.com")).rejects.toThrow(NotFoundError);
+    });
+
+    it("throws RateLimitError on 429", async () => {
+      server.use(
+        http.post(`${BASE_URL}/api/v1/scrape`, () =>
+          HttpResponse.json(
+            { success: false, error: "Rate limit exceeded", detail: { credits_used: 100, credits_limit: 100 } },
+            { status: 429 },
+          ),
+        ),
+      );
+      await expect(client.scrape("https://example.com")).rejects.toThrow(RateLimitError);
+    });
+
+    it("throws ServerError on 500", async () => {
+      server.use(
+        http.post(`${BASE_URL}/api/v1/scrape`, () =>
+          HttpResponse.json({ success: false, error: "Internal server error" }, { status: 500 }),
+        ),
+      );
+      await expect(client.scrape("https://example.com")).rejects.toThrow(ServerError);
     });
   });
 
