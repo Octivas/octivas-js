@@ -39,7 +39,7 @@ export interface PageContent {
   raw_html?: string;
   screenshot?: string;
   links?: string[];
-  json?: Record<string, unknown>;
+  json?: unknown;
   images?: string[];
   summary?: string;
   metadata?: PageMetadata;
@@ -88,6 +88,10 @@ export interface CrawlParams {
   url: string;
   limit?: number;
   formats?: ContentFormat[];
+  /** JSON Schema for structured extraction when `formats` includes `"json"`. */
+  schema?: Record<string, unknown>;
+  /** Guidance prompt when `formats` includes `"json"`. */
+  prompt?: string;
   exclude_paths?: string[];
   include_paths?: string[];
   max_depth?: number;
@@ -121,7 +125,7 @@ export interface ScrapeResponse {
   raw_html?: string;
   screenshot?: string;
   links?: string[];
-  json?: Record<string, unknown>;
+  json?: unknown;
   images?: string[];
   summary?: string;
   metadata?: PageMetadata;

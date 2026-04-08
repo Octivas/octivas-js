@@ -126,6 +126,33 @@ describe("Octivas client", () => {
       expect(result.pages_crawled).toBe(2);
       expect(result.pages).toHaveLength(2);
     });
+
+    it("forwards prompt and schema in the JSON body", async () => {
+      let captured: Record<string, unknown> | null = null;
+      server.use(
+        http.post(`${BASE_URL}/api/v1/crawl`, async ({ request }) => {
+          captured = (await request.json()) as Record<string, unknown>;
+          return HttpResponse.json({
+            success: true,
+            url: "https://docs.example.com",
+            pages_crawled: 1,
+            credits_used: 1,
+            pages: [],
+          });
+        }),
+      );
+      await client.crawl({
+        url: "https://docs.example.com",
+        limit: 2,
+        formats: ["markdown", "json"],
+        prompt: "Extract headings",
+        schema: { type: "object" },
+      });
+      expect(captured).not.toBeNull();
+      expect(captured!.formats).toEqual(["markdown", "json"]);
+      expect(captured!.prompt).toBe("Extract headings");
+      expect((captured!.schema as { type: string }).type).toBe("object");
+    });
   });
 
   describe("search", () => {

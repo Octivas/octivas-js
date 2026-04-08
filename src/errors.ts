@@ -34,12 +34,18 @@ export class BadRequestError extends OctivasError {
 }
 
 export class ForbiddenError extends OctivasError {
+  readonly upgradeUrl?: string;
+
   constructor(
     message: string,
     options?: { statusCode?: number; body?: Record<string, unknown> },
   ) {
     super(message, { statusCode: 403, ...options });
     this.name = "ForbiddenError";
+    const detail = (options?.body?.detail ?? options?.body) as Record<string, unknown> | undefined;
+    if (detail && typeof detail.upgrade_url === "string") {
+      this.upgradeUrl = detail.upgrade_url;
+    }
   }
 }
 
@@ -56,6 +62,7 @@ export class NotFoundError extends OctivasError {
 export class RateLimitError extends OctivasError {
   readonly creditsUsed?: number;
   readonly creditsLimit?: number;
+  readonly upgradeUrl?: string;
 
   constructor(
     message: string,
@@ -67,6 +74,7 @@ export class RateLimitError extends OctivasError {
     if (detail) {
       if (detail.credits_used != null) this.creditsUsed = Number(detail.credits_used);
       if (detail.credits_limit != null) this.creditsLimit = Number(detail.credits_limit);
+      if (typeof detail.upgrade_url === "string") this.upgradeUrl = detail.upgrade_url;
     }
   }
 }
