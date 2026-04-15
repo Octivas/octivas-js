@@ -115,6 +115,17 @@ export interface SearchParams {
   timeout?: number;
 }
 
+export interface MapParams {
+  url: string;
+  search?: string;
+  include_subdomains?: boolean;
+  ignore_query_parameters?: boolean;
+  limit?: number;
+  sitemap?: "only" | "include" | "skip";
+  timeout?: number;
+  location?: Location;
+}
+
 // ── Response types ──────────────────────────────────────────────────────────
 
 export interface ScrapeResponse {
@@ -131,31 +142,6 @@ export interface ScrapeResponse {
   metadata?: PageMetadata;
 }
 
-export interface BatchScrapeJob {
-  success: boolean;
-  job_id: string;
-  status: string;
-  total_urls: number;
-}
-
-export interface BatchScrapeStatus {
-  success: boolean;
-  job_id: string;
-  status: string;
-  completed: number;
-  total: number;
-  credits_used: number;
-  results: ScrapeResponse[];
-}
-
-export interface CrawlResponse {
-  success: boolean;
-  url: string;
-  pages_crawled: number;
-  credits_used: number;
-  pages: PageContent[];
-}
-
 export interface SearchResponse {
   success: boolean;
   query: string;
@@ -164,8 +150,83 @@ export interface SearchResponse {
   results: SearchResultItem[];
 }
 
+export interface MapLink {
+  url: string;
+  title?: string;
+  description?: string;
+}
+
+export interface MapResponse {
+  success: boolean;
+  url: string;
+  links_count: number;
+  links: MapLink[];
+}
+
 export interface ErrorResponse {
   success: false;
   error: string;
   details?: Array<{ field?: string; message: string; code?: string }>;
+}
+
+// ── Jobs ────────────────────────────────────────────────────────────────────
+
+export interface JobProgress {
+  completed: number;
+  total: number;
+}
+
+export interface JobError {
+  message: string;
+  type: string;
+}
+
+export interface JobSubmitResponse {
+  success: boolean;
+  job_id: string;
+  status: string;
+  total: number;
+}
+
+export interface JobStatusResponse {
+  success: boolean;
+  job_id: string;
+  type: string;
+  status: string;
+  provider: string;
+  progress: JobProgress;
+  credits_used: number;
+  error?: JobError;
+  created_at?: string;
+  started_at?: string;
+  finished_at?: string;
+  results?: unknown;
+}
+
+export interface JobListItem {
+  job_id: string;
+  type: string;
+  status: string;
+  provider: string;
+  progress: JobProgress;
+  credits_used: number;
+  error?: JobError;
+  organization_id?: string;
+  created_at?: string;
+  finished_at?: string;
+}
+
+export interface JobListResponse {
+  success: boolean;
+  jobs: JobListItem[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface ListJobsOptions {
+  type?: "crawl" | "batch_scrape";
+  status?: string;
+  page?: number;
+  limit?: number;
 }

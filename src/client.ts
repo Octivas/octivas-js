@@ -8,11 +8,14 @@ import {
   ServerError,
 } from "./errors";
 import type {
-  BatchScrapeJob,
   BatchScrapeParams,
-  BatchScrapeStatus,
   CrawlParams,
-  CrawlResponse,
+  JobStatusResponse,
+  JobSubmitResponse,
+  JobListResponse,
+  ListJobsOptions,
+  MapParams,
+  MapResponse,
   ScrapeParams,
   ScrapeResponse,
   SearchParams,
@@ -97,38 +100,74 @@ export class Octivas {
 
   // ── Batch scrape ────────────────────────────────────────────────────────
 
-  async batchScrape(params: BatchScrapeParams): Promise<BatchScrapeJob> {
+  async batchScrape(params: BatchScrapeParams): Promise<JobSubmitResponse> {
     const body = stripUndefined({ ...params });
-    return this.request<BatchScrapeJob>("POST", "/api/v1/batch/scrape", body);
+    return this.request<JobSubmitResponse>("POST", "/api/v1/batch/scrape", body);
   }
 
-  async batchScrapeStatus(jobId: string): Promise<BatchScrapeStatus> {
-    return this.request<BatchScrapeStatus>("GET", `/api/v1/batch/scrape/${jobId}`);
-  }
-
-  async batchScrapeWait(
+  async waitForBatchScrape(
     jobId: string,
     options?: { pollIntervalMs?: number; maxWaitMs?: number },
-  ): Promise<BatchScrapeStatus> {
-    const pollInterval = options?.pollIntervalMs ?? 2000;
-    const maxWait = options?.maxWaitMs ?? 300_000;
-    const deadline = Date.now() + maxWait;
+  ): Promise<JobStatusResponse> {
+    return this.pollJob(jobId, options);
+  }
 
-    while (true) {
-      const status = await this.batchScrapeStatus(jobId);
-      if (status.status === "completed" || status.status === "failed") return status;
-      if (Date.now() >= deadline) return status;
-      await new Promise((r) => setTimeout(r, pollInterval));
-    }
+  async batchScrapeAndWait(
+    params: BatchScrapeParams,
+    options?: { pollIntervalMs?: number; maxWaitMs?: number },
+  ): Promise<JobStatusResponse> {
+    const job = await this.batchScrape(params);
+    return this.waitForBatchScrape(job.job_id, options);
   }
 
   // ── Crawl ───────────────────────────────────────────────────────────────
 
-  async crawl(urlOrParams: string | CrawlParams): Promise<CrawlResponse> {
+  async crawl(urlOrParams: string | CrawlParams): Promise<JobSubmitResponse> {
     const params: CrawlParams =
       typeof urlOrParams === "string" ? { url: urlOrParams } : urlOrParams;
     const body = stripUndefined({ limit: 10, ...params });
-    return this.request<CrawlResponse>("POST", "/api/v1/crawl", body);
+    return this.request<JobSubmitResponse>("POST", "/api/v1/crawl", body);
+  }
+
+  async waitForCrawl(
+    jobId: string,
+    options?: { pollIntervalMs?: number; maxWaitMs?: number },
+  ): Promise<JobStatusResponse> {
+    return this.pollJob(jobId, options);
+  }
+
+  async crawlAndWait(
+    urlOrParams: string | CrawlParams,
+    options?: { pollIntervalMs?: number; maxWaitMs?: number },
+  ): Promise<JobStatusResponse> {
+    const job = await this.crawl(urlOrParams);
+    return this.waitForCrawl(job.job_id, options);
+  }
+
+  // ── Jobs ────────────────────────────────────────────────────────────────
+
+  async listJobs(options?: ListJobsOptions): Promise<JobListResponse> {
+    const params = new URLSearchParams();
+    if (options?.type) params.set("type", options.type);
+    if (options?.status) params.set("status", options.status);
+    if (options?.page != null) params.set("page", String(options.page));
+    if (options?.limit != null) params.set("limit", String(options.limit));
+    const qs = params.toString();
+    return this.request<JobListResponse>("GET", `/api/v1/jobs${qs ? `?${qs}` : ""}`);
+  }
+
+  async getJob(jobId: string, includeResults?: boolean): Promise<JobStatusResponse> {
+    const qs = includeResults ? "?include_results=true" : "";
+    return this.request<JobStatusResponse>("GET", `/api/v1/jobs/${jobId}${qs}`);
+  }
+
+  // ── Map ─────────────────────────────────────────────────────────────────
+
+  async map(urlOrParams: string | MapParams): Promise<MapResponse> {
+    const params: MapParams =
+      typeof urlOrParams === "string" ? { url: urlOrParams } : urlOrParams;
+    const body = stripUndefined({ limit: 5000, ...params });
+    return this.request<MapResponse>("POST", "/api/v1/map", body);
   }
 
   // ── Search ──────────────────────────────────────────────────────────────
@@ -138,5 +177,23 @@ export class Octivas {
       typeof queryOrParams === "string" ? { query: queryOrParams } : queryOrParams;
     const body = stripUndefined({ limit: 5, ...params });
     return this.request<SearchResponse>("POST", "/api/v1/search", body);
+  }
+
+  // ── Internal helpers ──────────────────────────────────────────────────
+
+  private async pollJob(
+    jobId: string,
+    options?: { pollIntervalMs?: number; maxWaitMs?: number },
+  ): Promise<JobStatusResponse> {
+    const pollInterval = options?.pollIntervalMs ?? 2000;
+    const maxWait = options?.maxWaitMs ?? 300_000;
+    const deadline = Date.now() + maxWait;
+
+    while (true) {
+      const status = await this.getJob(jobId, true);
+      if (status.status === "completed" || status.status === "failed") return status;
+      if (Date.now() >= deadline) return status;
+      await new Promise((r) => setTimeout(r, pollInterval));
+    }
   }
 }

@@ -107,24 +107,21 @@ describe("Octivas client", () => {
   });
 
   describe("crawl", () => {
-    it("returns crawl results", async () => {
+    it("submits crawl job and returns job info", async () => {
       server.use(
         http.post(`${BASE_URL}/api/v1/crawl`, () =>
           HttpResponse.json({
             success: true,
-            url: "https://docs.example.com",
-            pages_crawled: 2,
-            credits_used: 2,
-            pages: [
-              { url: "https://docs.example.com/", markdown: "# Docs" },
-              { url: "https://docs.example.com/start", markdown: "# Start" },
-            ],
+            job_id: "crawl-001",
+            status: "pending",
+            total: 10,
           }),
         ),
       );
       const result = await client.crawl("https://docs.example.com");
-      expect(result.pages_crawled).toBe(2);
-      expect(result.pages).toHaveLength(2);
+      expect(result.job_id).toBe("crawl-001");
+      expect(result.status).toBe("pending");
+      expect(result.total).toBe(10);
     });
 
     it("forwards prompt and schema in the JSON body", async () => {
@@ -134,10 +131,9 @@ describe("Octivas client", () => {
           captured = (await request.json()) as Record<string, unknown>;
           return HttpResponse.json({
             success: true,
-            url: "https://docs.example.com",
-            pages_crawled: 1,
-            credits_used: 1,
-            pages: [],
+            job_id: "crawl-002",
+            status: "pending",
+            total: 2,
           });
         }),
       );
@@ -174,6 +170,43 @@ describe("Octivas client", () => {
     });
   });
 
+  describe("map", () => {
+    it("returns map results", async () => {
+      server.use(
+        http.post(`${BASE_URL}/api/v1/map`, () =>
+          HttpResponse.json({
+            success: true,
+            url: "https://example.com",
+            links_count: 2,
+            links: [
+              { url: "https://example.com/", title: "Home" },
+              { url: "https://example.com/about", title: "About", description: "About us" },
+            ],
+          }),
+        ),
+      );
+      const result = await client.map("https://example.com");
+      expect(result.links_count).toBe(2);
+      expect(result.links[0].url).toBe("https://example.com/");
+      expect(result.links[1].description).toBe("About us");
+    });
+
+    it("accepts string shorthand", async () => {
+      server.use(
+        http.post(`${BASE_URL}/api/v1/map`, () =>
+          HttpResponse.json({
+            success: true,
+            url: "https://example.com",
+            links_count: 0,
+            links: [],
+          }),
+        ),
+      );
+      const result = await client.map("https://example.com");
+      expect(result.success).toBe(true);
+    });
+  });
+
   describe("batch scrape", () => {
     it("submits job and polls status", async () => {
       server.use(
@@ -181,17 +214,18 @@ describe("Octivas client", () => {
           HttpResponse.json({
             success: true,
             job_id: "abc123",
-            status: "processing",
-            total_urls: 2,
+            status: "pending",
+            total: 2,
           }),
         ),
-        http.get(`${BASE_URL}/api/v1/batch/scrape/abc123`, () =>
+        http.get(`${BASE_URL}/api/v1/jobs/abc123`, () =>
           HttpResponse.json({
             success: true,
             job_id: "abc123",
+            type: "batch_scrape",
             status: "completed",
-            completed: 2,
-            total: 2,
+            provider: "default",
+            progress: { completed: 2, total: 2 },
             credits_used: 2,
             results: [
               { success: true, url: "https://a.com", markdown: "A" },
@@ -202,9 +236,63 @@ describe("Octivas client", () => {
       );
       const job = await client.batchScrape({ urls: ["https://a.com", "https://b.com"] });
       expect(job.job_id).toBe("abc123");
-      const status = await client.batchScrapeStatus("abc123");
+      expect(job.total).toBe(2);
+      const status = await client.getJob("abc123", true);
       expect(status.status).toBe("completed");
       expect(status.results).toHaveLength(2);
+    });
+  });
+
+  describe("jobs", () => {
+    it("lists jobs", async () => {
+      server.use(
+        http.get(`${BASE_URL}/api/v1/jobs`, () =>
+          HttpResponse.json({
+            success: true,
+            jobs: [
+              {
+                job_id: "job-1",
+                type: "crawl",
+                status: "completed",
+                provider: "default",
+                progress: { completed: 5, total: 5 },
+                credits_used: 5,
+                created_at: "2026-04-15T10:00:00Z",
+                finished_at: "2026-04-15T10:01:00Z",
+              },
+            ],
+            total: 1,
+            page: 1,
+            limit: 20,
+          }),
+        ),
+      );
+      const result = await client.listJobs();
+      expect(result.total).toBe(1);
+      expect(result.jobs[0].job_id).toBe("job-1");
+      expect(result.jobs[0].type).toBe("crawl");
+    });
+
+    it("gets a single job", async () => {
+      server.use(
+        http.get(`${BASE_URL}/api/v1/jobs/job-1`, () =>
+          HttpResponse.json({
+            success: true,
+            job_id: "job-1",
+            type: "crawl",
+            status: "completed",
+            provider: "default",
+            progress: { completed: 5, total: 5 },
+            credits_used: 5,
+            created_at: "2026-04-15T10:00:00Z",
+            finished_at: "2026-04-15T10:01:00Z",
+          }),
+        ),
+      );
+      const result = await client.getJob("job-1");
+      expect(result.job_id).toBe("job-1");
+      expect(result.status).toBe("completed");
+      expect(result.progress.completed).toBe(5);
     });
   });
 });
